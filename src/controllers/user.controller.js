@@ -17,7 +17,8 @@ const registerUser= asyncHandler(async(req,res)=>{
     // remove password and refresh token field from response
     // check for user creation
     // return responseor error
-
+    
+    
     const {username,fullname,password,email}=req.body;
 
     console.log(req.body);
@@ -25,24 +26,32 @@ const registerUser= asyncHandler(async(req,res)=>{
     if([username,fullname,password,email].some((field)=> field?.trim()==="")){
         throw new ApiError(400,"All fields are required")
     }
-    
-    const existedUser=User.findOne({
+
+    const existedUser=await User.findOne({
         $or: [{username},{email}]
     })
-
+  
     if(existedUser){
         throw new ApiError(409,"User with username or email already exist")
     }
 
+    console.log("files :",req.files);
+
     const avatarLocalPath= req.files?.avatar[0]?.path;
-    const coverImageLocalPath=req.files?.coverImage[0]?.path;
+
+    let coverImageLocalPath;
+
+    if(req.files?.coverImage && req.files?.coverImage.length>0){
+        coverImageLocalPath=req.files?.coverImage[0]?.path;
+    }
+
 
     if(!avatarLocalPath){
         throw new ApiError(400,"Avatar is required");
     }
 
     const avatar=await uploadCloudinary(avatarLocalPath);
-
+    
     const coverImage=await uploadCloudinary(coverImageLocalPath);
 
     if(!avatar){
