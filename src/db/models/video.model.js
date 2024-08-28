@@ -1,10 +1,14 @@
-import express,{Schema,model} from "express";
+import mongoose,{Schema,model} from "mongoose";
 import mongooseAggregatePaginate from "mongoose-aggregate-paginate-v2";
 
 
 const videoSchema=new Schema(
     {
         videoFile:{
+            type:String,
+            required:true,
+        },
+        publicId:{
             type:String,
             required:true,
         },
@@ -39,7 +43,7 @@ const videoSchema=new Schema(
         }
     },
     {
-        timeStamps:true
+        timestamps:true
     });
 
 videoSchema.plugin(mongooseAggregatePaginate);

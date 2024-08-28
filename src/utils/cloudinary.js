@@ -9,11 +9,26 @@ import fs from 'fs';
         api_secret: process.env.CLOUDINARY_API_SECRET // Click 'View Credentials' below to copy your API secret
     });
     
-const uploadCloudinary= async(localFilePath) => {
+const uploadCloudinary= async(localFilePath,oldPublicId=null,assetType) => {
 
     try {
+
         if(!localFilePath) return null;
 
+        if(oldPublicId){
+
+            let oldFile;
+
+            if(assetType==="video"){
+                oldFile = await cloudinary.uploader.destroy(oldPublicId,{
+                    resource_type: "video"
+                }); 
+            }
+            else{
+                oldFile = await cloudinary.uploader.destroy(oldPublicId); 
+            }
+        //    console.log(oldFile);
+        }
         // upload the file on cloudinary 
         const response= await cloudinary.uploader.upload(localFilePath,{
             resource_type: "auto"
@@ -35,6 +50,21 @@ const uploadCloudinary= async(localFilePath) => {
  
 }
 
-export {uploadCloudinary};
+
+const deleteFromCloudinary= async (oldPublicId)=>{
+
+    try {
+        const oldFile = await cloudinary.uploader.destroy(oldPublicId,{
+            resource_type: "video"
+        }); 
+        
+    } catch (error) {
+        console.log("error while uploading: ",error);
+    }
+
+    
+}
+
+export {uploadCloudinary,deleteFromCloudinary};
     
     

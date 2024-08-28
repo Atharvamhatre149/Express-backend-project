@@ -54,6 +54,9 @@ const registerUser = asyncHandler(async (req, res) => {
 
     const avatar = await uploadCloudinary(avatarLocalPath);
 
+    console.log("Avatar :",avatar);
+    
+
     const coverImage = await uploadCloudinary(coverImageLocalPath);
 
     if (!avatar) {
@@ -68,6 +71,9 @@ const registerUser = asyncHandler(async (req, res) => {
         password,
         username: username.toLowerCase(),
     });
+
+    console.log("User creted nnnnn :",user);
+    
 
     const createdUser = await User.findById(user._id).select(
         "-password -refreshToken"
@@ -274,7 +280,7 @@ const updateUserAvater = asyncHandler(async (req, res) => {
 
     const avatar = uploadCloudinary(avatarLocalPath);
 
-    if (!avatar.url) {
+    if (!avatar) {
         throw new ApiError(
             400,
             "Error while uploading updated avatar on cloudinary"

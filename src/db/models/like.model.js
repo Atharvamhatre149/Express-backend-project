@@ -21,7 +21,7 @@ const likeSchema=new Schema({
     },
 },
 {
-    timestamps:ture
+    timestamps:true
 })
 
 
