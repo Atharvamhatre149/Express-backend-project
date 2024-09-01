@@ -2,11 +2,11 @@ import mongoose,{model,Schema} from "mongoose";
 
 const playlistSchema=new Schema({
     name:{
-        type:string,
+        type:String,
         required:true,
     },
     description:{
-        type:string,
+        type:String,
     },
     videos:[
         {
@@ -16,7 +16,8 @@ const playlistSchema=new Schema({
     ],
     creater:{
         type:Schema.Types.ObjectId,
-        ref:"User"
+        ref:"User",
+        required:true
     }
 },
 {
