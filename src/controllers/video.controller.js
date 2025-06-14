@@ -36,6 +36,25 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
         const aggregationPipeline=[
             {$match: match},
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "owner",
+                    foreignField: "_id",
+                    as: "owner",
+                    pipeline: [
+                        {
+                            $project: {
+                                username: 1,
+                                avatar: 1
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                $unwind: "$owner"
+            },
             {$sort:sortOption},
             {
                 $skip: (options.page-1)*options.limit
