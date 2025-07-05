@@ -7,15 +7,14 @@ const toggleVideoLike=asyncHandler(async(req,res)=>{
     
     const {videoId}= req.params;
     const userId=req.user?._id;
-
+    
     try {
         
         const existingLike= await Like.findOne({video:videoId,owner:userId})
-
+        
         if(existingLike){
 
             await existingLike.deleteOne()
-
             return res
                 .status(200)
                 .json(new ApiResponse(200,{},"Liked removed successfully"))
@@ -43,6 +42,26 @@ const toggleVideoLike=asyncHandler(async(req,res)=>{
     }   
 
 
+})
+
+const IsVideoLike=asyncHandler(async(req,res)=>{
+    
+    const {videoId}= req.params;
+    const userId=req.user?._id;
+    
+    try {
+        
+        const existingLike= await Like.findOne({video:videoId,owner:userId})
+        const like = existingLike ? true :false
+        return res
+            .status(200)
+            .json(new ApiResponse(200,{like},"User like retrieved successfully"))
+
+    } catch (error) {
+        
+        console.log(error);
+        throw new ApiError(500,"Error in toggling like")
+    }   
 })
 
 const toggleCommentLike=asyncHandler(async(req,res)=>{
@@ -154,4 +173,4 @@ const getLikedVideos= asyncHandler(async(req,res)=>{
     }
 })
 
-export {toggleVideoLike,toggleCommentLike,toggleTweetLike,getLikedVideos};
+export {toggleVideoLike,toggleCommentLike,toggleTweetLike,getLikedVideos,IsVideoLike};

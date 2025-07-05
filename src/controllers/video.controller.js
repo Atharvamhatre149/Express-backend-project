@@ -5,6 +5,8 @@ import { deleteFromCloudinary, uploadCloudinary } from "../utils/cloudinary.js";
 import { Video } from "../db/models/video.model.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import { User } from "../db/models/user.model.js";
+import { log } from "console";
+import { Like } from "../db/models/like.model.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, query='', sortBy='createdAt', sortType='desc', userId } = req.query;
@@ -116,6 +118,8 @@ const publishVideo = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Error while uploading the thumbnail");
     }
     
+    console.log("video: ",videoFile);
+    
     
     const video=await Video.create({
         videoFile:videoFile.url,
@@ -140,21 +144,35 @@ const publishVideo = asyncHandler(async (req, res) => {
 });
 
 const getVideoById = asyncHandler(async (req, res) => {
+    const { videoId } = req.params;
 
-    const {videoId}= req.params;
-
-    const video=await Video.findById(videoId);
+    // First increment the views
+    const video = await Video.findByIdAndUpdate(
+        videoId,
+        {
+            $inc: { views: 1 }
+        },
+        {
+            new: true
+        }
+    ).populate('owner', 'username avatar');
 
     if (!video) {
         throw new ApiError(400, "Video does not exist");
     }
 
-    return res
-    .status(200)
-    .json(
-        new ApiResponse(200,video,"video is available")
-    )
+    const likeCount = await Like.countDocuments({ video: videoId });
 
+    const videoWithLikes = {
+        ...video._doc,
+        likes: likeCount
+    };
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(200, videoWithLikes, "video is available")
+        )
 });
 
 const updateVideo = asyncHandler(async (req, res) => {

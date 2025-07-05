@@ -19,9 +19,8 @@ const registerUser = asyncHandler(async (req, res) => {
     // return responseor error
 
     const { username, fullname, password, email } = req.body;
-
-    console.log(req.body);
-
+    console.log("request is ",req.files);
+    
     if (
         [username, fullname, password, email].some(
             (field) => field?.trim() === ""
@@ -38,8 +37,6 @@ const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(409, "User with username or email already exist");
     }
 
-    console.log("files :", req.files);
-
     const avatarLocalPath = req.files?.avatar[0]?.path;
 
     let coverImageLocalPath;
@@ -53,9 +50,6 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 
     const avatar = await uploadCloudinary(avatarLocalPath);
-
-    console.log("Avatar :",avatar);
-    
 
     const coverImage = await uploadCloudinary(coverImageLocalPath);
 
@@ -72,9 +66,6 @@ const registerUser = asyncHandler(async (req, res) => {
         username: username.toLowerCase(),
     });
 
-    console.log("User creted nnnnn :",user);
-    
-
     const createdUser = await User.findById(user._id).select(
         "-password -refreshToken"
     );
@@ -89,7 +80,7 @@ const registerUser = asyncHandler(async (req, res) => {
     return res
         .status(201)
         .json(
-            new ApiResponse(200, createdUser, "User registered successfully")
+            new ApiResponse(201, createdUser, "User registered successfully")
         );
 });
 
@@ -149,22 +140,25 @@ const loginUser = asyncHandler(async (req, res) => {
         "-password -refreshToken"
     );
 
-    const options = {
+    const cookieOptions = {
         httpOnly: true,
         secure: true,
+        sameSite: 'lax',
+        maxAge: 15 * 60 * 1000,
     };
 
     return res
         .status(200)
-        .cookie("accessToken", accessToken, options)
-        .cookie("refreshToken", refreshToken, options)
+        .cookie("accessToken", accessToken, cookieOptions)
+        .cookie("refreshToken", refreshToken, {
+            ...cookieOptions,
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        })
         .json(
             new ApiResponse(
                 200,
                 {
                     user: loggedInUser,
-                    accessToken,
-                    refreshToken,
                 },
                 "User Logged In Successfully"
             )
@@ -184,15 +178,15 @@ const logOutUser = asyncHandler(async (req, res) => {
         }
     );
 
-    const options = {
+    const cookieOptions = {
         httpOnly: true,
         secure: true,
     };
 
     return res
         .status(200)
-        .clearCookie("accessToken", options)
-        .clearCookie("refreshToken", options)
+        .clearCookie("accessToken", cookieOptions)
+        .clearCookie("refreshToken", cookieOptions)
         .json(new ApiResponse(200, {}, "User Logged Out Successfully"));
 });
 
@@ -220,9 +214,10 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
             throw new ApiError(401, "Refresh token is expired or used");
         }
 
-        const options = {
+        const cookieOptions = {
             httpOnly: true,
             secure: true,
+            maxAge: 15 * 60 * 1000,
         };
 
         const { accessToken, newRefreshToken } =
@@ -230,8 +225,11 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 
         return res
             .status(200)
-            .cookie("accessToken", accessToken, options)
-            .cookie("refreshToken", newRefreshToken, options)
+            .cookie("accessToken", accessToken, cookieOptions)
+            .cookie("refreshToken", newRefreshToken, {
+                ...cookieOptions,
+                maxAge: 7 * 24 * 60 * 60 * 1000
+            })
             .json(
                 new ApiResponse(
                     200,
