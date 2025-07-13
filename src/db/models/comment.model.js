@@ -19,7 +19,7 @@ const commentSchema=new Schema({
 
 },
 {
-    timeStamps:true
+    timestamps: true
 });
 
 commentSchema.plugin(mongooseAggregatePaginate);

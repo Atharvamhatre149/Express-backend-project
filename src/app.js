@@ -5,10 +5,9 @@ import cors from "cors";
 const app=express();
 
 app.use(cors({
-    origin: function(origin, callback) {
-        callback(null, origin);
-    },
-    credentials: true
+    origin: "http://localhost:5173",
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    credentials: true,
 }));
 
 app.use(express.json({limit:"16kb"}));
@@ -36,7 +35,7 @@ app.use("/api/v1",healthcheckRouter)
 app.use("/api/v1/likes",likeRouter)
 app.use("/api/v1/playlist",playlistRouter)
 app.use("/api/v1/tweet",tweetRouter)
-app.use("/api/v1/subscription",subscriptionRouter)
+app.use("/api/v1/subscriptions",subscriptionRouter)
 app.use("/api/v1/dashboard",dashboardRouter)
 
 // https://localhost:8000/api/v1/users

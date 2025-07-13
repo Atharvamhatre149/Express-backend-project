@@ -3,6 +3,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { Subscription } from "../db/models/subscription.model.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
+import { log } from "console";
 ApiResponse
 
 const toggleSubscription = asyncHandler(async(req,res)=>{
@@ -77,4 +78,23 @@ const getSubscribedChannels = asyncHandler(async(req,res)=>{
 });
 
 
-export {toggleSubscription,getSubscribedChannels,getUserChannelSubscribers};
+const getChannelSubscribedByUser = asyncHandler(async(req,res) =>{
+    const {channelId} = req.params;
+    const subscriberId = req.user?._id;
+
+    try {
+        const alreadySubscribed = await Subscription.findOne({channel:channelId, subscriber: subscriberId})
+        const subscribe = alreadySubscribed ? true : false
+
+        return res
+            .status(200)
+            .json(new ApiResponse(200,{subscribe},"User subscription retrived successfully"))
+
+    } catch (error) {
+        console.log(error);
+        throw new ApiError(500,"Error while retrieving subscription")
+        
+    }
+})
+
+export {toggleSubscription,getSubscribedChannels,getUserChannelSubscribers,getChannelSubscribedByUser};

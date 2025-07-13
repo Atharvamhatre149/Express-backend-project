@@ -7,6 +7,7 @@ import ApiResponse from "../utils/ApiResponse.js";
 import { User } from "../db/models/user.model.js";
 import { log } from "console";
 import { Like } from "../db/models/like.model.js";
+import { Subscription } from "../db/models/subscription.model.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, query='', sortBy='createdAt', sortType='desc', userId } = req.query;
@@ -145,7 +146,7 @@ const publishVideo = asyncHandler(async (req, res) => {
 
 const getVideoById = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
-
+    
     // First increment the views
     const video = await Video.findByIdAndUpdate(
         videoId,
@@ -162,16 +163,24 @@ const getVideoById = asyncHandler(async (req, res) => {
     }
 
     const likeCount = await Like.countDocuments({ video: videoId });
+    
+    
+    const subscriberCount = await Subscription.countDocuments({
+        channel: video.owner._id
+    });
 
-    const videoWithLikes = {
+
+    
+    const videoWithDetails = {
         ...video._doc,
-        likes: likeCount
+        likes: likeCount || 0,
+        subscriberCount: subscriberCount || 0
     };
 
     return res
         .status(200)
         .json(
-            new ApiResponse(200, videoWithLikes, "video is available")
+            new ApiResponse(200, videoWithDetails, "video is available")
         )
 });
 

@@ -23,6 +23,30 @@ const getVideoComments=asyncHandler(async(req,res)=>{
                 },
             },
             {
+                $lookup: {
+                    from: "users",
+                    localField: "owner",
+                    foreignField: "_id",
+                    as: "owner",
+                    pipeline: [
+                        {
+                            $project: {
+                                username: 1,
+                                avatar: 1
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                $addFields: {
+                    owner: { $first: "$owner" }
+                }
+            },
+            {
+                $sort: { createdAt: -1 }  
+            },
+            {
                 $skip: (options.page-1)*options.limit
             },
             {
@@ -63,11 +87,13 @@ const addComment=asyncHandler(async(req,res)=>{
         if(!comment){
             throw new ApiError(500,"Error in posting comment");
         }
+
+        const populatedComment = await Comment.findById(comment._id).populate('owner', 'username avatar');
         
         return res
         .status(201)
         .json(
-            new ApiResponse(200,comment,"Comment is posted successfully")
+            new ApiResponse(200,populatedComment,"Comment is posted successfully")
         )
 
     } catch (error) {
@@ -81,25 +107,31 @@ const updateComment=asyncHandler(async(req,res)=>{
         const {commentId} = req.params;
         const {content}=req.body;
         
+        if(!content?.trim()){
+            throw new ApiError(400, "Content is required");
+        }
 
-        const newComment = await Comment.findByIdAndUpdate(
+        const updatedComment = await Comment.findByIdAndUpdate(
             commentId,
             {
                 $set: {
-                    content:content
+                    content: content
                 },
             },
             { new: true }
-        );
+        ).populate('owner', 'username avatar');
+
+        if(!updatedComment){
+            throw new ApiError(404, "Comment not found");
+        }
 
         return res
         .status(200)
-        .json(new ApiResponse(200, newComment, "Comment is updated successfully"));
+        .json(new ApiResponse(200, updatedComment, "Comment is updated successfully"));
 
     } catch (error) {
-        throw new ApiError(400,"Error occurred while updating the comment")
+        throw new ApiError(error?.statusCode || 500, error?.message || "Error occurred while updating the comment")
     }
-
 })
 
 const deleteComment=asyncHandler(async(req,res)=>{
