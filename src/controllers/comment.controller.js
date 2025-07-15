@@ -1,6 +1,7 @@
 
 import mongoose from "mongoose";
 import { Comment } from "../db/models/comment.model.js";
+import { Like } from "../db/models/like.model.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
@@ -39,8 +40,49 @@ const getVideoComments=asyncHandler(async(req,res)=>{
                 }
             },
             {
+                $lookup: {
+                    from: "likes",
+                    let: { commentId: "$_id" },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ["$comment", "$$commentId"] },
+                                        { $eq: ["$owner", req.user?._id] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: "userLike"
+                }
+            },
+            {
+                $lookup: {
+                    from: "likes",
+                    localField: "_id",
+                    foreignField: "comment",
+                    as: "likes"
+                }
+            },
+            {
                 $addFields: {
-                    owner: { $first: "$owner" }
+                    owner: { $first: "$owner" },
+                    likeCount: { $size: "$likes" },
+                    isLiked: {
+                        $cond: {
+                            if: { $gt: [{ $size: "$userLike" }, 0] },
+                            then: true,
+                            else: false
+                        }
+                    }
+                }
+            },
+            {
+                $project: {
+                    likes: 0,
+                    userLike: 0
                 }
             },
             {
@@ -58,7 +100,6 @@ const getVideoComments=asyncHandler(async(req,res)=>{
             Comment.aggregate(aggregationPipeline),
             options
         )
-
 
         return res
         .status(200)

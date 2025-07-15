@@ -6,6 +6,7 @@ import { uploadCloudinary } from "../utils/cloudinary.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import mongoose, { set } from "mongoose";
+import { Playlist } from "../db/models/playlist.model.js";
 
 const registerUser = asyncHandler(async (req, res) => {
     // get data from the frontend
@@ -76,6 +77,13 @@ const registerUser = asyncHandler(async (req, res) => {
             "something went wrong while registering the user"
         );
     }
+
+    // Create Watch Later playlist for the new user
+    await Playlist.create({
+        name: "Watch Later",
+        creater: user._id,
+        videos: []
+    });
 
     return res
         .status(201)

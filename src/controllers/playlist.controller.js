@@ -7,7 +7,7 @@ import { Video } from "../db/models/video.model.js";
 
 const createPlaylist= asyncHandler(async(req,res)=>{
 
-    const {name,description}= req.body;
+    const {name}= req.body;
 
     if(!name){
         throw new ApiError(400,"Name is required");
@@ -15,7 +15,6 @@ const createPlaylist= asyncHandler(async(req,res)=>{
 
     const playlist=await Playlist.create({
         name,
-        description,
         creater: req.user?._id
     })
 
@@ -172,7 +171,7 @@ const deletePlaylist = asyncHandler(async(req,res)=>{
 
 const updatePlaylist = asyncHandler(async(req,res)=>{
     const {playlistId} = req.params;
-    const {name,description} = req.body;
+    const {name} = req.body;
 
     if(!mongoose.Types.ObjectId.isValid(playlistId)){
         throw new ApiError(400,"Invalid playlist Id")
@@ -190,10 +189,6 @@ const updatePlaylist = asyncHandler(async(req,res)=>{
             playlist.name=name;
         }
     
-        if(description){
-            playlist.description=description;
-        }
-    
         await playlist.save();
 
         return res
@@ -206,5 +201,23 @@ const updatePlaylist = asyncHandler(async(req,res)=>{
     }
 })
 
+const getPlaylistsContainingVideo = asyncHandler(async(req, res) => {
+    const { videoId } = req.params;
 
-export{createPlaylist,getPlaylistById,getUserPlaylists,addVideoToPlaylist,removeVideoFromPlaylist,deletePlaylist,updatePlaylist};
+    if (!mongoose.Types.ObjectId.isValid(videoId)) {
+        throw new ApiError(400, "Invalid video ID");
+    }
+
+    const playlists = await Playlist.find({
+        creater: req.user?._id,
+        videos: videoId
+    });
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(200, playlists, "Playlists containing video fetched successfully")
+        );
+});
+
+export{createPlaylist,getPlaylistById,getUserPlaylists,addVideoToPlaylist,removeVideoFromPlaylist,deletePlaylist,updatePlaylist,getPlaylistsContainingVideo};
