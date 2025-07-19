@@ -8,6 +8,7 @@ import { User } from "../db/models/user.model.js";
 import { log } from "console";
 import { Like } from "../db/models/like.model.js";
 import { Subscription } from "../db/models/subscription.model.js";
+import { Playlist } from "../db/models/playlist.model.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, query='', sortBy='createdAt', sortType='desc', userId } = req.query;
@@ -147,22 +148,39 @@ const publishVideo = asyncHandler(async (req, res) => {
 const getVideoById = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
     
-    // First increment the views
     const video = await Video.findById(videoId).populate('owner', 'username avatar');
 
     if (!video) {
         throw new ApiError(400, "Video does not exist");
     }
 
-    const likeCount = await Like.countDocuments({ video: videoId });
+    // Run these operations in parallel using Promise.all
+    const [likeCount, subscriberCount, watchHistoryResult] = await Promise.all([
+        Like.countDocuments({ video: videoId }),
+        Subscription.countDocuments({ channel: video.owner._id }),
+        // Upsert and update watch history in one operation
+        Playlist.findOneAndUpdate(
+            { 
+                name: "Watch History",
+                creater: req.user?._id 
+            },
+            { 
+                $pull: { videos: videoId },  // First remove the video if it exists
+            },
+            { 
+                new: true,
+                upsert: true 
+            }
+        )
+    ]);
     
-    
-    const subscriberCount = await Subscription.countDocuments({
-        channel: video.owner._id
-    });
+    if (watchHistoryResult) {
+        await Playlist.updateOne(
+            { _id: watchHistoryResult._id },
+            { $push: { videos: { $each: [videoId], $position: 0 } } }
+        );
+    }
 
-
-    
     const videoWithDetails = {
         ...video._doc,
         likes: likeCount || 0,
