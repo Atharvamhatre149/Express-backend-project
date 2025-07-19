@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { verifyJWT } from "../middlewares/auth.middleware.js";
-import { deleteVideo, getAllVideos, getVideoById, publishVideo, togglePublishStatus, updateVideo } from "../controllers/video.controller.js";
 import { upload } from "../middlewares/multer.middleware.js";
+import { deleteVideo, getAllVideos, getVideoById, publishVideo, togglePublishStatus, updateVideo, incrementVideoViews } from "../controllers/video.controller.js";
 
 const router=Router();
 
@@ -32,5 +32,8 @@ router
 
 router
     .route("/toggle/publish/:videoId").patch(verifyJWT,togglePublishStatus)
+
+router.route("/view/:videoId")
+        .post(incrementVideoViews)
 
 export default router;

@@ -148,15 +148,7 @@ const getVideoById = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
     
     // First increment the views
-    const video = await Video.findByIdAndUpdate(
-        videoId,
-        {
-            $inc: { views: 1 }
-        },
-        {
-            new: true
-        }
-    ).populate('owner', 'username avatar');
+    const video = await Video.findById(videoId).populate('owner', 'username avatar');
 
     if (!video) {
         throw new ApiError(400, "Video does not exist");
@@ -286,6 +278,34 @@ const togglePublishStatus = asyncHandler(async (req, res) => {
     }
 });
 
+const incrementVideoViews = asyncHandler(async (req, res) => {
+    const { videoId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(videoId)) {
+        throw new ApiError(400, "Invalid video ID");
+    }
+
+    const video = await Video.findByIdAndUpdate(
+        videoId,
+        {
+            $inc: { views: 1 }
+        },
+        {
+            new: true
+        }
+    ).populate('owner', 'username avatar');
+
+    if (!video) {
+        throw new ApiError(404, "Video not found");
+    }
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(200, { views: video.views }, "Video views incremented successfully")
+        );
+});
+
 export {
     getAllVideos,
     publishVideo,
@@ -293,4 +313,5 @@ export {
     updateVideo,
     deleteVideo,
     togglePublishStatus,
+    incrementVideoViews
 };
