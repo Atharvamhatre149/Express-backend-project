@@ -4,6 +4,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import ApiError from "../utils/ApiError.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import { Video } from "../db/models/video.model.js";
+import { log } from 'console';
 
 const createPlaylist= asyncHandler(async(req,res)=>{
 
@@ -54,10 +55,33 @@ const getUserPlaylists= asyncHandler(async(req,res)=>{
 
 })
 
+
+const getUserPlaylistNames= asyncHandler(async(req,res)=>{
+    console.log("inside get user playlist names");
+    
+    const playlists= await Playlist.find(
+        {
+            creater:req.user?._id
+        }
+    );
+
+    if(!playlists){
+        throw new ApiError(500,"Error while getting user playlists");
+    }
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(200,playlists,"Playlists fetched successfully")
+        )
+
+})
+
 const getPlaylistById= asyncHandler(async(req,res)=>{
-
+    
     const {playlistId}= req.params;
-
+    console.log("playlist id is", playlistId);
+    
     if (!mongoose.Types.ObjectId.isValid(playlistId)) {
         throw new ApiError(400, "Invalid playlist ID format");
     }
@@ -220,4 +244,4 @@ const getPlaylistsContainingVideo = asyncHandler(async(req, res) => {
         );
 });
 
-export{createPlaylist,getPlaylistById,getUserPlaylists,addVideoToPlaylist,removeVideoFromPlaylist,deletePlaylist,updatePlaylist,getPlaylistsContainingVideo};
+export{createPlaylist,getPlaylistById,getUserPlaylists,addVideoToPlaylist,removeVideoFromPlaylist,deletePlaylist,updatePlaylist,getPlaylistsContainingVideo,getUserPlaylistNames};
