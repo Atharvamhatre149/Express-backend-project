@@ -4,8 +4,6 @@ import ApiError from "../utils/ApiError.js";
 import { deleteFromCloudinary, uploadCloudinary } from "../utils/cloudinary.js";
 import { Video } from "../db/models/video.model.js";
 import ApiResponse from "../utils/ApiResponse.js";
-import { User } from "../db/models/user.model.js";
-import { log } from "console";
 import { Like } from "../db/models/like.model.js";
 import { Subscription } from "../db/models/subscription.model.js";
 import { Playlist } from "../db/models/playlist.model.js";
@@ -13,21 +11,22 @@ import { Playlist } from "../db/models/playlist.model.js";
 const getAllVideos = asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, query='', sortBy='createdAt', sortType='desc', userId } = req.query;
 
-    const match={};
+    const match = {};
 
     if(query){
         match.$or= [
-            {title: {$regex: query, $option: 'i'}},
-            {description: {$regex:query, $option: 'i'}}
+            {title: {$regex: query, $options: 'i'}},
+            {description: {$regex:query, $options: 'i'}}
         ];
     }
 
-    if(userId){
-        match.owner=userId;
+    if(userId && mongoose.Types.ObjectId.isValid(userId)){
+        match.owner = new mongoose.Types.ObjectId(userId);
+        // If it's the owner viewing their videos, show both published and unpublished
+        delete match.isPublished;
     }
 
     const sortOption = {};
-
     sortOption[sortBy] = sortType === 'asc' ? 1 : -1;
 
     const options={
@@ -66,22 +65,28 @@ const getAllVideos = asyncHandler(async (req, res) => {
             {$limit: options.limit}
         ];
         
-        const result= await Video.aggregatePaginate(
+        const result = await Video.aggregatePaginate(
             Video.aggregate(aggregationPipeline),
             options
         )
 
+        // Add debug information to response
+        const debugInfo = {
+            matchCondition: match,
+            totalVideosForUser: await Video.countDocuments({ owner: match.owner }),
+            aggregationPipeline: aggregationPipeline
+        };
+        
         return res
         .status(200)
         .json(
-            new ApiResponse(200,result,"Videos retrieved successfully")
+            new ApiResponse(200, { ...result, debug: debugInfo }, "Videos retrieved successfully")
         )
 
     } catch (error) {
         console.log(error);     
         throw new ApiError(500,"Error occurred while fetching videos");
     }
-
 });
 
 const publishVideo = asyncHandler(async (req, res) => {
@@ -147,33 +152,39 @@ const publishVideo = asyncHandler(async (req, res) => {
 
 const getVideoById = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
-    
+
     const video = await Video.findById(videoId).populate('owner', 'username avatar');
 
     if (!video) {
         throw new ApiError(400, "Video does not exist");
     }
 
-    // Run these operations in parallel using Promise.all
-    const [likeCount, subscriberCount, watchHistoryResult] = await Promise.all([
+    // Run in parallel — only include playlist logic if user is logged in
+    const baseOperations = [
         Like.countDocuments({ video: videoId }),
-        Subscription.countDocuments({ channel: video.owner._id }),
-        // Upsert and update watch history in one operation
-        Playlist.findOneAndUpdate(
-            { 
-                name: "Watch History",
-                creater: req.user?._id 
-            },
-            { 
-                $pull: { videos: videoId },  // First remove the video if it exists
-            },
-            { 
-                new: true,
-                upsert: true 
-            }
-        )
-    ]);
-    
+        Subscription.countDocuments({ channel: video.owner._id })
+    ];
+
+    if (req.user?._id) {
+        baseOperations.push(
+            Playlist.findOneAndUpdate(
+                { name: "Watch History", creator: req.user._id },
+                {
+                    $pull: { videos: videoId },
+                    $setOnInsert: { creator: req.user._id }
+                },
+                {
+                    new: true,
+                    upsert: true,
+                    setDefaultsOnInsert: true
+                }
+            )
+        );
+    }
+
+    const [likeCount, subscriberCount, watchHistoryResult] = await Promise.all(baseOperations);
+
+
     if (watchHistoryResult) {
         await Playlist.updateOne(
             { _id: watchHistoryResult._id },
@@ -187,12 +198,11 @@ const getVideoById = asyncHandler(async (req, res) => {
         subscriberCount: subscriberCount || 0
     };
 
-    return res
-        .status(200)
-        .json(
-            new ApiResponse(200, videoWithDetails, "video is available")
-        )
+    return res.status(200).json(
+        new ApiResponse(200, videoWithDetails, "Video is available")
+    );
 });
+
 
 const updateVideo = asyncHandler(async (req, res) => {
 

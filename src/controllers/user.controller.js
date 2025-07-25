@@ -62,7 +62,7 @@ const registerUser = asyncHandler(async (req, res) => {
         fullname,
         avatar: avatar.url,
         coverImage: coverImage?.url || "",
-        email,
+        email,  
         password,
         username: username.toLowerCase(),
     });
@@ -466,6 +466,70 @@ const getWatchHistory = asyncHandler(async (req, res) => {
 
 });
 
+const getUserInfoById = asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+        throw new ApiError(400, "Invalid user ID");
+    }
+
+    const user = await User.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(userId)
+            }
+        },
+        {
+            $lookup: {
+                from: "subscriptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers"
+            }
+        },
+        {
+            $addFields: {
+                subscribersCount: {
+                    $size: "$subscribers"
+                },
+                isSubscribed: {
+                    $cond: {
+                        if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+                        then: true,
+                        else: false
+                    }
+                }
+            }
+        },
+        {
+            $project: {
+                fullname: 1,
+                username: 1,
+                subscribersCount: 1,
+                isSubscribed: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1,
+                createdAt: 1
+            }
+        }
+    ]);
+
+    if (!user?.length) {
+        throw new ApiError(404, "User not found");
+    }
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                user[0],
+                "User information fetched successfully"
+            )
+        );
+});
+
 export {
     registerUser,
     loginUser,
@@ -477,4 +541,5 @@ export {
     updateUserCoverImage,
     getUserChannelProfile,
     getWatchHistory,
+    getUserInfoById
 };

@@ -159,10 +159,16 @@ const getLikedVideos= asyncHandler(async(req,res)=>{
             }})
             .skip((page-1)*limit)
             .limit(parseInt(limit,10))
-            .populate('video')
+            .populate({
+                path: 'video',
+                populate: {
+                    path: 'owner',
+                    select: 'username avatar'
+                }
+            })
             .exec();
 
-            const likedVideos= likes.map(likes=> likes.video)
+            const likedVideos= likes.map(like => like.video)
         
             return res.status(200)
                     .json(new ApiResponse(200,likedVideos,"Liked videos retrieved successfully"))

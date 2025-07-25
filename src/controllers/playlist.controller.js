@@ -16,7 +16,7 @@ const createPlaylist= asyncHandler(async(req,res)=>{
 
     const playlist=await Playlist.create({
         name,
-        creater: req.user?._id
+        creator: req.user?._id
     })
 
     if(!playlist){
@@ -32,27 +32,27 @@ const createPlaylist= asyncHandler(async(req,res)=>{
 })
 
 const getUserPlaylists= asyncHandler(async(req,res)=>{
-
-
-    console.log("request reached");
-    
-    const playlists= await Playlist.find(
+    const playlists = await Playlist.find(
         {
-            creater:req.user?._id
+            creator: req.user?._id
         }
-    ).populate('videos');
-
+    ).populate({
+        path: 'videos',
+        populate: {
+            path: 'owner',
+            select: 'username avatar'
+        }
+    });
 
     if(!playlists){
         throw new ApiError(500,"Error while getting user playlists");
     }
 
     return res
-        .status(200)
+        .status(200)    
         .json(
             new ApiResponse(200,playlists,"Playlists fetched successfully")
         )
-
 })
 
 
@@ -61,7 +61,7 @@ const getUserPlaylistNames= asyncHandler(async(req,res)=>{
     
     const playlists= await Playlist.find(
         {
-            creater:req.user?._id
+            creator: req.user?._id
         }
     );
 
@@ -233,7 +233,7 @@ const getPlaylistsContainingVideo = asyncHandler(async(req, res) => {
     }
 
     const playlists = await Playlist.find({
-        creater: req.user?._id,
+        creator: req.user?._id,
         videos: videoId
     });
 
