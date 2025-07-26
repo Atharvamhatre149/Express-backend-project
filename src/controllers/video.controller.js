@@ -334,6 +334,93 @@ const incrementVideoViews = asyncHandler(async (req, res) => {
         );
 });
 
+const getSubscribedChannelsVideos = asyncHandler(async (req, res) => {
+    const { page = 1, limit = 10, sortBy = 'createdAt', sortType = 'desc' } = req.query;
+    const userId = req.user?._id;
+
+    if (!userId) {
+        throw new ApiError(401, "Unauthorized request");
+    }
+
+    try {
+       
+        const subscribedChannels = await Subscription.find(
+            { subscriber: userId },
+            { channel: 1, _id: 0 }
+        );
+
+        const channelIds = subscribedChannels.map(sub => sub.channel);
+
+        if (!channelIds.length) {
+            return res.status(200).json(
+                new ApiResponse(
+                    200,
+                    { docs: [], totalDocs: 0, limit, page, totalPages: 0 },
+                    "No subscribed channels found"
+                )
+            );
+        }
+
+        const sortOption = {};
+        sortOption[sortBy] = sortType === 'asc' ? 1 : -1;
+
+        const aggregationPipeline = [
+            {
+                $match: {
+                    owner: { $in: channelIds },
+                    isPublished: true
+                }
+            },
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "owner",
+                    foreignField: "_id",
+                    as: "owner",
+                    pipeline: [
+                        {
+                            $project: {
+                                username: 1,
+                                avatar: 1
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                $unwind: "$owner"
+            },
+            {
+                $sort: sortOption
+            }
+        ];
+
+        const options = {
+            page: parseInt(page, 10),
+            limit: parseInt(limit, 10)
+        };
+
+        const result = await Video.aggregatePaginate(
+            Video.aggregate(aggregationPipeline),
+            options
+        );
+
+        return res
+            .status(200)
+            .json(
+                new ApiResponse(
+                    200,
+                    result,
+                    "Subscribed channels' videos fetched successfully"
+                )
+            );
+
+    } catch (error) {
+        console.log(error);
+        throw new ApiError(500, "Error occurred while fetching subscribed channels' videos");
+    }
+});
+
 export {
     getAllVideos,
     publishVideo,
@@ -341,5 +428,6 @@ export {
     updateVideo,
     deleteVideo,
     togglePublishStatus,
-    incrementVideoViews
+    incrementVideoViews,
+    getSubscribedChannelsVideos
 };
