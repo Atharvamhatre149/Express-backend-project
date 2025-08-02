@@ -7,11 +7,15 @@ import ApiResponse from "../utils/ApiResponse.js";
 import { Like } from "../db/models/like.model.js";
 import { Subscription } from "../db/models/subscription.model.js";
 import { Playlist } from "../db/models/playlist.model.js";
+import { Comment } from "../db/models/comment.model.js";
+import { User } from "../db/models/user.model.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
-    const { page = 1, limit = 10, query='', sortBy='createdAt', sortType='desc', userId } = req.query;
+    const { page = 1, limit = 10, query='', sortBy='createdAt', sortType='desc', userId, all = 0 } = req.query;
 
-    const match = {};
+    const match = {
+        isPublished: true // By default, only show published videos
+    };
 
     if(query){
         match.$or= [
@@ -22,7 +26,8 @@ const getAllVideos = asyncHandler(async (req, res) => {
 
     if(userId && mongoose.Types.ObjectId.isValid(userId)){
         match.owner = new mongoose.Types.ObjectId(userId);
-        // If it's the owner viewing their videos, show both published and unpublished
+    } 
+    if (all == 1) {
         delete match.isPublished;
     }
 
@@ -216,7 +221,7 @@ const updateVideo = asyncHandler(async (req, res) => {
 
     const videoLocalPath=req.file?.path;
 
-    if(!videoLocalPath){
+    if(!videoLocalPath){    
         return new ApiError(400,"Video file is missing");
     }
 
@@ -250,28 +255,66 @@ const updateVideo = asyncHandler(async (req, res) => {
 });
 
 const deleteVideo = asyncHandler(async (req, res) => {
-    
-    try {
-        const {videoId}=req.params;
+    const {videoId} = req.params;
 
-        const video=await Video.findById(videoId);
-        
-        if(!video){
-            return new ApiError(400,"Video id is incorrect");
-        }
-
-        await deleteFromCloudinary(video?.publicId);
-
-        await Video.findByIdAndDelete(videoId);
-
-        return res
-               .status(200)
-               .json(new ApiResponse(200,{},"Video deleted successfully"));
-
-    } catch (error) {
-        throw new ApiError(500,"Error in deleting the video")
+    if (!mongoose.Types.ObjectId.isValid(videoId)) {
+        throw new ApiError(400, "Invalid video ID");
     }
 
+    const video = await Video.findById(videoId);
+    
+    if (!video) {
+        throw new ApiError(404, "Video not found");
+    }
+
+    // Start a MongoDB session for transaction
+    const session = await mongoose.startSession();
+    
+    try {
+        session.startTransaction();
+
+        // Delete video from cloudinary
+        await deleteFromCloudinary(video.publicId);
+
+        // Delete video document
+        await Video.findByIdAndDelete(videoId).session(session);
+
+        // Remove video from all playlists
+        await Playlist.updateMany(
+            { videos: videoId },
+            { $pull: { videos: videoId } },
+            { session }
+        );
+
+        // Delete all likes associated with the video
+        await Like.deleteMany({ video: videoId }).session(session);
+
+        // Delete all comments associated with the video
+        await Comment.deleteMany({ video: videoId }).session(session);
+
+        // Remove video from users' watch history
+        await User.updateMany(
+            { watchHistory: videoId },
+            { $pull: { watchHistory: videoId } },
+            { session }
+        );
+
+        await session.commitTransaction();
+
+        return res
+            .status(200)
+            .json(new ApiResponse(
+                200,
+                {},
+                "Video and all associated data deleted successfully"
+            ));
+
+    } catch (error) {
+        await session.abortTransaction();
+        throw new ApiError(500, "Error in deleting the video and associated data");
+    } finally {
+        session.endSession();
+    }
 });
 
 const togglePublishStatus = asyncHandler(async (req, res) => {

@@ -2,7 +2,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { upload } from "../middlewares/multer.middleware.js";
 import ApiError from "../utils/ApiError.js";
 import { User } from "../db/models/user.model.js";
-import { uploadCloudinary } from "../utils/cloudinary.js";
+import { uploadCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 import mongoose, { set } from "mongoose";
@@ -51,7 +51,6 @@ const registerUser = asyncHandler(async (req, res) => {
     }
 
     const avatar = await uploadCloudinary(avatarLocalPath);
-
     const coverImage = await uploadCloudinary(coverImageLocalPath);
 
     if (!avatar) {
@@ -60,8 +59,14 @@ const registerUser = asyncHandler(async (req, res) => {
 
     const user = await User.create({
         fullname,
-        avatar: avatar.url,
-        coverImage: coverImage?.url || "",
+        avatar: {
+            url: avatar.url,
+            public_id: avatar.public_id
+        },
+        coverImage: coverImage ? {
+            url: coverImage.url,
+            public_id: coverImage.public_id
+        } : undefined,
         email,  
         password,
         username: username.toLowerCase(),
@@ -81,7 +86,7 @@ const registerUser = asyncHandler(async (req, res) => {
     // Create Watch Later playlist for the new user
     await Playlist.create({
         name: "Watch Later",
-        creater: user._id,
+        creator: user._id,
         videos: []
     });
 
@@ -145,7 +150,7 @@ const loginUser = asyncHandler(async (req, res) => {
     );
 
     const loggedInUser = await User.findById(user._id).select(
-        "-password -refreshToken"
+        "-password -refreshToken -description -links -coverImage -watchHistory"
     );
 
     const cookieOptions = {
@@ -284,7 +289,10 @@ const updateUserAvater = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Avatar file is missing");
     }
 
-    const avatar = uploadCloudinary(avatarLocalPath);
+    // Get current user to delete old avatar from cloudinary
+    const user = await User.findById(req.user?._id);
+
+    const avatar = await uploadCloudinary(avatarLocalPath,user.avatar.public_id);
 
     if (!avatar) {
         throw new ApiError(
@@ -293,11 +301,14 @@ const updateUserAvater = asyncHandler(async (req, res) => {
         );
     }
 
-    const user = await User.findByIdAndUpdate(
+    const updatedUser = await User.findByIdAndUpdate(
         req.user?._id,
         {
             $set: {
-                avatar: avatar.url,
+                avatar: {
+                    url: avatar.url,
+                    public_id: avatar.public_id
+                }
             },
         },
         { new: true }
@@ -305,7 +316,7 @@ const updateUserAvater = asyncHandler(async (req, res) => {
 
     return res
         .status(200)
-        .json(new ApiResponse(200, user, "User Avatar updated successfully"));
+        .json(new ApiResponse(200, updatedUser, "User Avatar updated successfully"));
 });
 
 const updateUserCoverImage = asyncHandler(async (req, res) => {
@@ -315,7 +326,10 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Cover image file is missing");
     }
 
-    const coverImage = await uploadCloudinary(coverImageLocalPath);
+    // Get current user to delete old cover image from cloudinary
+    const user = await User.findById(req.user?._id);
+
+    const coverImage = await uploadCloudinary(coverImageLocalPath,user.coverImage.public_id);
 
     if (!coverImage.url) {
         throw new ApiError(
@@ -324,11 +338,14 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
         );
     }
 
-    const user = await User.findByIdAndUpdate(
+    const updatedUser = await User.findByIdAndUpdate(
         req.user?._id,
         {
             $set: {
-                coverImage: coverImage.url,
+                coverImage: {
+                    url: coverImage.url,
+                    public_id: coverImage.public_id
+                }
             },
         },
         { new: true }
@@ -337,7 +354,74 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     return res
         .status(200)
         .json(
-            new ApiResponse(200, user, "User cover image updated successfully")
+            new ApiResponse(200, updatedUser, "User cover image updated successfully")
+        );
+});
+
+const updateUserProfile = asyncHandler(async (req, res) => {
+    const { description, links } = req.body;
+
+    if (!description && !links) {
+        throw new ApiError(400, "At least one field (description or links) is required");
+    }
+
+    // Validate links format if provided
+    if (links) {
+        if (!Array.isArray(links)) {
+            throw new ApiError(400, "Links must be an array");
+        }
+
+        // Validate each link object
+        links.forEach((link, index) => {
+            if (!link.title?.trim() || !link.url?.trim()) {
+                throw new ApiError(400, `Invalid link at index ${index}. Both title and url are required`);
+            }
+            
+            // Basic URL validation
+            try {
+                new URL(link.url);
+            } catch (error) {
+                throw new ApiError(400, `Invalid URL for link "${link.title}"`);
+            }
+        });
+    }
+
+    const updateFields = {};
+    
+    if (description !== undefined) {
+        updateFields.description = description.trim();
+    }
+    
+    if (links !== undefined) {
+        updateFields.links = links.map(link => ({
+            title: link.title.trim(),
+            url: link.url.trim()
+        }));
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set: updateFields
+        },
+        {
+            new: true,
+            runValidators: true
+        }
+    ).select("-password -refreshToken");
+
+    if (!updatedUser) {
+        throw new ApiError(404, "User not found");
+    }
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                updatedUser,
+                "User profile updated successfully"
+            )
         );
 });
 
@@ -510,7 +594,9 @@ const getUserInfoById = asyncHandler(async (req, res) => {
                 avatar: 1,
                 coverImage: 1,
                 email: 1,
-                createdAt: 1
+                createdAt: 1,
+                description: 1,
+                links: 1
             }
         }
     ]);
@@ -541,5 +627,6 @@ export {
     updateUserCoverImage,
     getUserChannelProfile,
     getWatchHistory,
-    getUserInfoById
+    getUserInfoById,
+    updateUserProfile
 };

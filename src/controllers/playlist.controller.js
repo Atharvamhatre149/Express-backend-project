@@ -57,8 +57,7 @@ const getUserPlaylists= asyncHandler(async(req,res)=>{
 
 
 const getUserPlaylistNames= asyncHandler(async(req,res)=>{
-    console.log("inside get user playlist names");
-    
+
     const playlists= await Playlist.find(
         {
             creator: req.user?._id
