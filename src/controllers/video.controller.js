@@ -12,7 +12,6 @@ import { User } from "../db/models/user.model.js";
 
 const getAllVideos = asyncHandler(async (req, res) => {
     const { page = 1, limit = 10, query='', sortBy='createdAt', sortType='desc', userId, all = 0 } = req.query;
-
     const match = {
         isPublished: true // By default, only show published videos
     };

@@ -5,7 +5,7 @@ import cors from "cors";
 const app=express();
 
 app.use(cors({
-    origin: "http://localhost:5173",
+    origin: "https://videoverse14.netlify.app/",
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
     credentials: true,
 }));
