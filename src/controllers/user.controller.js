@@ -156,8 +156,10 @@ const loginUser = asyncHandler(async (req, res) => {
     const cookieOptions = {
         httpOnly: true,
         secure: true,
-        sameSite: 'lax',
-        maxAge:  60 * 60 * 1000,
+        sameSite: 'none',
+        domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : 'localhost',
+        path: '/',
+        maxAge: 60 * 60 * 1000,
     };
 
     return res
@@ -194,6 +196,9 @@ const logOutUser = asyncHandler(async (req, res) => {
     const cookieOptions = {
         httpOnly: true,
         secure: true,
+        sameSite: 'none',
+        domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : 'localhost',
+        path: '/'
     };
 
     return res
@@ -230,6 +235,9 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
         const cookieOptions = {
             httpOnly: true,
             secure: true,
+            sameSite: 'none',
+            domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : 'localhost',
+            path: '/',
             maxAge: 15 * 60 * 1000,
         };
 
