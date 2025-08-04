@@ -3,34 +3,32 @@ import ApiError from "../utils/ApiError.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import jwt from "jsonwebtoken";
 
-export const verifyJWT= asyncHandler(async(req,res,next)=>{
-
+export const verifyJWT = asyncHandler(async(req, res, next) => {
     try {
-        const token=req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer","");
+        const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "").trim();
 
         if(!token){
-            throw new ApiError(401,"Unauthorized request");
+            throw new ApiError(401, "Unauthorized request");
         }
     
-        const decodedTokenInfo= jwt.verify(token,process.env.ACCESS_TOKEN_SECRET)
+        const decodedTokenInfo = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
     
-        const user= await User.findById(decodedTokenInfo?._id).select("-password -refreshToken");
+        const user = await User.findById(decodedTokenInfo?._id).select("-password -refreshToken");
     
-        if(!user) throw new ApiError(401,"Invalid Access Token");
+        if(!user) throw new ApiError(401, "Invalid Access Token");
     
-        req.user=user;
+        req.user = user;
 
         next();
     } catch (error) {
-        throw new ApiError(401,error?.message || "Invalid Access Token");
+        throw new ApiError(401, error?.message || "Invalid Access Token");
     }
-
 })
 
 
 export const optionalVerifyJWT = asyncHandler(async (req, res, next) => {
     try {
-        const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer", "").trim();
+        const token = req.cookies?.accessToken || req.header("Authorization")?.replace("Bearer ", "").trim();
 
         if (!token) {
             return next();
@@ -42,8 +40,8 @@ export const optionalVerifyJWT = asyncHandler(async (req, res, next) => {
         if (user) {
             req.user = user;
         }
-    } catch (err) {
-        throw new ApiError(401,error?.message || "Invalid Access Token");
+    } catch (error) {
+        throw new ApiError(401, error?.message || "Invalid Access Token");
     }
 
     next();
