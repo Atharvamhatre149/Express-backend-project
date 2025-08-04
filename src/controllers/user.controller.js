@@ -157,7 +157,6 @@ const loginUser = asyncHandler(async (req, res) => {
         httpOnly: true,
         secure: true,
         sameSite: 'none',
-        domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : 'localhost',
         path: '/',
         maxAge: 60 * 60 * 1000,
     };
@@ -197,7 +196,7 @@ const logOutUser = asyncHandler(async (req, res) => {
         httpOnly: true,
         secure: true,
         sameSite: 'none',
-        domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : 'localhost',
+        maxAge: 60 * 60 * 1000,
         path: '/'
     };
 
