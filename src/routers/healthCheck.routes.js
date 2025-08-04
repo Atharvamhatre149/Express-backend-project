@@ -1,7 +1,6 @@
 import {Router} from "express";
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import healthcheck from "../controllers/healthcheck.controller.js";
+
+import healthcheck from "../controllers/healthCheck.controller.js";
 
 const router=Router();
 
