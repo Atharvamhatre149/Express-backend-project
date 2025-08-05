@@ -20,8 +20,7 @@ const registerUser = asyncHandler(async (req, res) => {
     // return responseor error
 
     const { username, fullname, password, email } = req.body;
-    console.log("request is ",req.files);
-    
+ 
     if (
         [username, fullname, password, email].some(
             (field) => field?.trim() === ""
@@ -124,8 +123,6 @@ const loginUser = asyncHandler(async (req, res) => {
     // send cookie
 
     const { email, username, password } = req.body;
-
-    console.log("request body :", req.body);
 
     if (!username && !email) {
         throw new ApiError(400, "Username or email is required");
@@ -235,25 +232,24 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
             httpOnly: true,
             secure: true,
             sameSite: 'none',
-            domain: process.env.NODE_ENV === 'production' ? '.onrender.com' : 'localhost',
             path: '/',
             maxAge: 15 * 60 * 1000,
         };
 
-        const { accessToken, newRefreshToken } =
+        const { accessToken, refreshToken } =
             await generateAccessAndRefreshTokens(user._id);
 
         return res
             .status(200)
             .cookie("accessToken", accessToken, cookieOptions)
-            .cookie("refreshToken", newRefreshToken, {
+            .cookie("refreshToken", refreshToken, {
                 ...cookieOptions,
                 maxAge: 7 * 24 * 60 * 60 * 1000
             })
             .json(
                 new ApiResponse(
                     200,
-                    { accessToken, newRefreshToken },
+                    { accessToken, refreshToken },
                     "Access token refreshed"
                 )
             );
