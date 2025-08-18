@@ -211,7 +211,6 @@ const getVideoById = asyncHandler(async (req, res) => {
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params;
     const { title, description } = req.body;
-    console.log("title is :",req.files);
     const video = await Video.findById(videoId);
 
     if (!video) {
