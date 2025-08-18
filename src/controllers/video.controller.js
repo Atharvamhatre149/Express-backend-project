@@ -209,47 +209,64 @@ const getVideoById = asyncHandler(async (req, res) => {
 
 
 const updateVideo = asyncHandler(async (req, res) => {
+    const { videoId } = req.params;
+    const { title, description } = req.body;
+    console.log("title is :",req.files);
+    const video = await Video.findById(videoId);
 
-    const {videoId}= req.params;
-
-    const video=await Video.findById(videoId);
-
-    if(!video){
-        return new ApiError(400,"Video id is incorrect");
+    if (!video) {
+        throw new ApiError(400, "Video id is incorrect");
     }
 
-    const videoLocalPath=req.file?.path;
-
-    if(!videoLocalPath){    
-        return new ApiError(400,"Video file is missing");
+    // Check if the user is the owner of the video
+    if (video.owner.toString() !== req.user?._id.toString()) {
+        throw new ApiError(403, "Unauthorized: You can only update your own videos");
     }
 
-    const videoFile=await uploadCloudinary(videoLocalPath,video?.publicId,"video");
+    const updateFields = {};
 
-    if (!videoFile.url) {
-        throw new ApiError(
-            400,
-            "Error while uploading updated video on cloudinary"
-        );
+    // Handle title and description updates
+    if (title?.trim()) updateFields.title = title;
+    if (description?.trim()) updateFields.description = description;
+
+    // Handle video file update
+    const videoLocalPath = req.files?.videoFile?.[0]?.path;
+    if (videoLocalPath) {
+        const videoFile = await uploadCloudinary(videoLocalPath, video.publicId, "video");
+        if (!videoFile?.url) {
+            throw new ApiError(400, "Error while uploading updated video on cloudinary");
+        }
+        updateFields.videoFile = videoFile.url;
+        updateFields.publicId = videoFile.public_id;
+        updateFields.duration = videoFile.duration;
     }
 
-    const newVideo = await Video.findByIdAndUpdate(
-        video?._id,
+    // Handle thumbnail update
+    const thumbnailPath = req.files?.thumbnail?.[0]?.path;
+    if (thumbnailPath) {
+        const thumbnail = await uploadCloudinary(thumbnailPath);
+        if (!thumbnail?.url) {
+            throw new ApiError(400, "Error while uploading thumbnail on cloudinary");
+        }
+        updateFields.thumbnail = thumbnail.url;
+    }
+
+    // If no fields to update
+    if (Object.keys(updateFields).length === 0) {
+        throw new ApiError(400, "No fields provided for update");
+    }
+
+    const updatedVideo = await Video.findByIdAndUpdate(
+        video._id,
         {
-            $set: {
-                videoFile: videoFile?.url,
-                publicId:  videoFile?.public_id
-            },
+            $set: updateFields
         },
         { new: true }
-    );
-
-    console.log(newVideo);
-    
+    ).populate('owner', 'username avatar');
 
     return res
         .status(200)
-        .json(new ApiResponse(200, newVideo, "Video file updated successfully"));
+        .json(new ApiResponse(200, updatedVideo, "Video updated successfully"));
 
 });
 
